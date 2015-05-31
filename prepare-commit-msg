@@ -1,0 +1,29 @@
+#!/usr/bin/python
+
+"""
+If a commit message was previously stored (due to a failed commit) it will
+be written to the file used to initiate the editor editing the commit message.
+
+The first argument of 'prepare-commit-msg' is the name of
+the file to be used by the editor.
+
+If more arguments are given to the script this indicated that it is not
+a 'normal' commit where the commit message is to be edited in an editor.
+For example if the message was directly to the commit with '-m' or if a templete
+was given with '-t'.
+In any cases this script will do nothing.
+"""
+
+import message_store
+import sys
+import os
+
+
+if (not len(sys.argv) > 2):
+    message = message_store.get()
+
+    filename = sys.argv[1]
+
+    file = open(filename, 'w+')
+    file.write(message)
+    file.close()

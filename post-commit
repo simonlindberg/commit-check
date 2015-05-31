@@ -1,0 +1,9 @@
+#!/usr/bin/python
+
+"""
+Removes any commit messages previously stored.
+"""
+
+import message_store
+
+message_store.delete()
