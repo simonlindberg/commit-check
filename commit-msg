@@ -118,8 +118,10 @@ def spell_check(message):
 
 
 msg_file = open(commit_msg_fd, 'r')
-message = msg_file.read()
+original_message = msg_file.read()
 msg_file.close()
+
+message = re.sub("^#(?:\n|.)*", "", original_message, flags = re.M)
 
 lines = message.splitlines()
 
@@ -148,7 +150,7 @@ if (len(lines) > 1):
 # Did we fail?
 if (fail_reason):
     # Save the message to be used in the next try.
-    message_store.save(message)
+    message_store.save(original_message)
 
     print "COMMIT ABORTED!"
     print "\n".join(fail_reason)
