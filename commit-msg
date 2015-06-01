@@ -22,6 +22,7 @@ of the file in which the commit message is stored in.
 
 import sys
 import re
+import subprocess
 import message_store
 
 # If the commit is to fail, due to an incorrect formated commit message, the information of why is stored here.
@@ -83,6 +84,37 @@ def ensure_subject_and_body_seperate(lines):
         lines.insert(1, "")
         fixups.append("* The subject line should be seperated from the body with a blank line.")
 
+def spell_check(message):
+    """
+    Spell checks the commit message with `aspell`, if aspell does
+    not exist on the system this will do nothing.
+
+    If the spell check is run and nothing of intrest is found `None` is returned,
+    otherwise a new list with the error hightlighted is returned.
+    """
+
+    aspell = subprocess.Popen(["which aspell"], stdout = subprocess.PIPE, stderr = subprocess.STDOUT, shell = True).communicate()[0].split("\n")[0]
+    if (aspell == ""):
+        print "No `aspell` found, install it to enable spell check."
+        return None
+
+    aspells = subprocess.Popen(["echo '" + message + "' | " + aspell + " list"], stdout = subprocess.PIPE, stderr = subprocess.STDOUT, shell = True).communicate()[0].split("\n")[:-1]
+
+    spell_checks = False
+    for _aspell in aspells:
+        message = message.replace(_aspell, "\033[4m" + _aspell + "\033[0m")
+        spell_checks = True
+
+    if (spell_checks):
+        sys.stdin = open('/dev/tty')
+        print "Found some questionable spellings:"
+        print ""
+        print message
+        print ""
+        answer = raw_input("Would you like to continue anyway? ")
+        if answer.strip().lower().startswith('n'):
+            message_store.save(original_message)
+            sys.exit(1) # Aborts the commit.
 
 
 msg_file = open(commit_msg_fd, 'r')
@@ -96,6 +128,10 @@ if (not lines):
     sys.exit(0)
 
 
+# If any potential errors are found, ask the user to continue or not
+spell_check(message)
+
+
 # The subject is the first line of the commit message
 lines[0] = ensure_capitalization(lines[0])
 lines[0] = ensure_punctuation(lines[0])
@@ -106,7 +142,6 @@ assert_subject_length(lines[0])
 if (len(lines) > 1):
     assert_body_line_length(lines)
     ensure_subject_and_body_seperate(lines)
-
 
 # Done with the checking!
 
