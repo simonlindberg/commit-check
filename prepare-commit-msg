@@ -22,8 +22,8 @@ import os
 if (not len(sys.argv) > 2):
     message = message_store.get()
 
-    filename = sys.argv[1]
-
-    file = open(filename, 'w+')
-    file.write(message)
-    file.close()
+    if (message is not None):
+	    filename = sys.argv[1]
+	    file = open(filename, 'w+')
+	    file.write(message)
+	    file.close()

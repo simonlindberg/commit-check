@@ -33,4 +33,4 @@ def get():
         file.close()
         return msg
     else:
-        return ""
+        return None
