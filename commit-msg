@@ -98,7 +98,7 @@ def spell_check(message):
         print "No `aspell` found, install it to enable spell check."
         return None
 
-    aspells = subprocess.Popen(["echo '" + message + "' | " + aspell + " list"], stdout = subprocess.PIPE, stderr = subprocess.STDOUT, shell = True).communicate()[0].split("\n")[:-1]
+    aspells = subprocess.Popen(["echo '" + message.replace("'", "'\\''") + "' | " + aspell + " list"], stdout = subprocess.PIPE, stderr = subprocess.STDOUT, shell = True).communicate()[0].split("\n")[:-1]
 
     spell_checks = False
     for _aspell in aspells:
