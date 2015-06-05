@@ -24,6 +24,8 @@ import sys
 import re
 import subprocess
 import message_store
+import operator
+from pattern.en import Sentence, parse, mood, modality, INDICATIVE, IMPERATIVE, CONDITIONAL, SUBJUNCTIVE
 
 # If the commit is to fail, due to an incorrect formated commit message, the information of why is stored here.
 fail_reason = []
@@ -33,6 +35,41 @@ fixups = []
 
 commit_msg_fd = sys.argv[1]
 
+
+def underline(text):
+    return "\033[4m" + text + "\033[0m"
+
+def red(text):
+    return "\033[91m" + text + "\033[0m"
+
+def blue(text):
+    return "\033[96m" + text + "\033[0m"
+
+def green(text):
+    return "\033[92m" + text + "\033[0m"
+
+def yellow(text):
+    return "\033[93m" + text + "\033[0m"
+
+def indent(text):
+    return "\t" + text.replace("\n", "\n\t")
+
+def mood_color(mood):
+    if (mood == IMPERATIVE):
+        return green
+    elif (mood == INDICATIVE):
+        return blue
+    elif (mood == SUBJUNCTIVE):
+        return red
+    elif (mood == CONDITIONAL):
+        return yellow
+
+def continue_or_abort():
+    sys.stdin = open('/dev/tty')
+    answer = raw_input("Would you like to continue anyway? ")
+    if answer.strip().lower().startswith('n'):
+        message_store.save(original_message)
+        sys.exit(1) # Aborts the commit.
 
 def assert_subject_length(subject):
     """
@@ -102,23 +139,77 @@ def spell_check(message):
 
     spell_checks = False
     for _aspell in aspells:
-        message = message.replace(_aspell, "\033[4m" + _aspell + "\033[0m")
+        message = message.replace(_aspell, underline(_aspell))
         spell_checks = True
 
     if (spell_checks):
-        sys.stdin = open('/dev/tty')
+        print ""
         print "Found some questionable spellings:"
         print ""
-        print message
+        print indent(message)
         print ""
-        answer = raw_input("Would you like to continue anyway? ")
-        if answer.strip().lower().startswith('n'):
-            message_store.save(original_message)
-            sys.exit(1) # Aborts the commit.
+
+        continue_or_abort()
+
+
+def mood_check(message):
+    """
+    Checks that the subject line is in an IMPERATIVE mood and
+    that thare are no SUBJUNCTIVE sentences in the message.
+    """
+    mood_by_sentence = {}
+
+    # The subject line might not contain any punctuation
+    # But should allways be treated as a sentence.
+    sub = message.split("\n", 1)[0]
+    if (sub[-1] != "." or sub[-1] != "!" or sub[-1] != "?"):
+        message = message.replace(sub + "\n", sub + ".\n", 1)
+
+    # Split on punctuation and start of bullet point
+    sentences = re.split("[.?!]|^\s?[-*]\s?", message)
+
+    for sentence in sentences:
+        if (re.match("^\s*$", sentence)):
+            continue
+        p = parse(sentence, lemmata = True)
+        s = Sentence(p)
+        mood_by_sentence[sentence] = mood(s)
+
+    bad_subject_line = False
+    bad_sentence = False
+
+    if (sentences[0] in mood_by_sentence and mood_by_sentence[sentences[0]] != IMPERATIVE):
+        bad_subject_line = True
+
+    for s, m in mood_by_sentence.iteritems():
+        s = re.sub("^\s+", "", s)
+        message = message.replace(s, mood_color(m)(s))
+
+        if (m == SUBJUNCTIVE):
+            bad_sentence = True
+
+    if (bad_subject_line or bad_sentence):
+        print ""
+        if (bad_subject_line):
+            print "* The mood of the subject line should be " + mood_color(IMPERATIVE)(IMPERATIVE) + " not " + mood_color(mood_by_sentence[sentences[0]])(mood_by_sentence[sentences[0]]) + "."
+        if (bad_sentence):
+            print "* No sentence in the body of the message should be " + mood_color(SUBJUNCTIVE)(SUBJUNCTIVE) + "."
+        print ""
+        print indent(message)
+        print ""
+
+        print mood_color(IMPERATIVE)( " " + IMPERATIVE + "  (command)")
+        print mood_color(INDICATIVE)( " " + INDICATIVE + "  (fact/belief)")
+        print mood_color(CONDITIONAL)(" " + CONDITIONAL + " (conjecture)")
+        print mood_color(SUBJUNCTIVE)(" " + SUBJUNCTIVE + " (opinion/wish)")
+        print ""
+
+        continue_or_abort()
 
 
 msg_file = open(commit_msg_fd, 'r')
 original_message = msg_file.read()
+#original_message = re.sub("^\s+", "", original_message)
 msg_file.close()
 
 message = re.sub("^#(?:\n|.)*", "", original_message, flags = re.M)
@@ -130,8 +221,11 @@ if (not lines):
     sys.exit(0)
 
 
-# If any potential errors are found, ask the user to continue or not
+# If any potential spelling errors are found, ask the user to continue or not
 spell_check(message)
+
+# If any non compliant moods are detected, show the user and ask whether to continue or not.
+mood_check(message)
 
 
 # The subject is the first line of the commit message
