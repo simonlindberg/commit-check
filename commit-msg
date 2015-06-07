@@ -34,6 +34,10 @@ FAIL_REASON = []
 # If any fixups was done on to the message, information of what fixups are stored here.
 FIXUPS = []
 
+# Warnings are shown in the end to the user. Warnings are not cause for a failure
+# and are not fixable either.
+WARNINGS = []
+
 COMMIT_MSG_PATH = sys.argv[1]
 
 
@@ -102,20 +106,26 @@ def continue_or_abort():
 
 def assert_subject_length(subject):
     """
-    Asserts that the subject line is shorter than 50.
+    Asserts that the subject line is shorter than 69. Warns if above 50.
     """
-    if len(subject) > 50:
-        FAIL_REASON.append("* The subject line may not be longer than 50 characters.")
+    if len(subject) > 69:
+        FAIL_REASON.append("* The subject line may not be longer than 69 characters.")
+    elif len(subject) > 50:
+        WARNINGS.append("* The preferable length of the subject is below 50, hard limit at 69.")
 
 
 def assert_body_line_length(lines):
     """
-    Asserts that the body lines are shorter than 72 characters.
+    Asserts that the body lines are shorter than 80 characters. Warns if above 72.
     """
+    warned = False
     for line in lines[1:]:
-        if len(line) > 72:
-            FAIL_REASON.append("* No line of the body may contain more than 72 characters.")
+        if len(line) > 80:
+            FAIL_REASON.append("* No line of the body may contain more than 80 characters.")
             break
+        elif len(line) > 72 and not warned:
+            warned = True # Only warn once.
+            WARNINGS.append("* Line lengths above 72 are discouraged, however the hard limit is 80.")
 
 
 def ensure_subject_line_non_empty(lines):
@@ -316,4 +326,9 @@ if FIXUPS:
     print ""
     print "Did some fixups on the message for you:"
     print "\n".join(FIXUPS)
+    print ""
+
+if WARNINGS:
+    print "Friendly reminders:"
+    print "\n".join(WARNINGS)
     print ""
