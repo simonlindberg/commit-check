@@ -153,8 +153,8 @@ def ensure_punctuation(subject):
     """
     while subject[-1] == '.' or subject[-1] == '!' or subject[-1] == '?':
         FIXUPS.append(
-            "* Removed " + subject[-1] +
-            " from the end of the subject line, no need for punctuations.")
+            "* Removed '" + subject[-1] +
+            "' from the end of the subject line, no need for punctuations in the subject line.")
         subject = subject[0:-1]
 
     return subject
@@ -166,9 +166,9 @@ def ensure_subject_body_seperate(lines):
     The subject and the body needs to be seperated in order for
     git to properly dicern them in the logs. Also i looks better.
     """
-    if not re.compile(r"^\s*$").match(lines[1]):
+    if len(lines) > 1 and not re.compile(r"^\s*$").match(lines[1]):
         lines.insert(1, "")
-        FIXUPS.append("* The subject line should be seperated from the body with a blank line.")
+        FIXUPS.append("* Inserted an empty line between the subject and the body.")
 
 def spell_check(message):
     """
