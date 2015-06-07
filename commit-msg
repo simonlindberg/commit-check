@@ -118,6 +118,24 @@ def assert_body_line_length(lines):
             break
 
 
+def ensure_subject_line_non_empty(lines):
+    """
+    Ensures that the subject line is non empty.
+    If it is empty and there exist a next line, it is removed and a fixup message is added.
+    If it is empty and there does not exist a following line,
+    a fail reason is added and the commit will be aborted
+    """
+    while len(lines) > 0 and re.match(r"^\s*$", lines[0]):
+        if len(lines) > 1:
+            lines.pop(0)
+            FIXUPS.append("* Removed the first line, it was all white space.")
+        else:
+            FAIL_REASON.append("* The commit message may not be empty.")
+
+    if re.match(r"^\s+.+", lines[0]):
+        lines[0] = re.sub(r"^\s", "", lines[0])
+        FIXUPS.append("* Removed leading white space in subject line.")
+
 def ensure_capitalization(subject):
     """
     Returns a correctly capitalized version of input subject line.
@@ -262,6 +280,7 @@ mood_check(MESSAGE)
 
 
 # The subject is the first line of the commit message
+ensure_subject_line_non_empty(LINES)
 LINES[0] = ensure_capitalization(LINES[0])
 LINES[0] = ensure_punctuation(LINES[0])
 
