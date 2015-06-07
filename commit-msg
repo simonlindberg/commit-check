@@ -66,8 +66,10 @@ def mood_color(mood):
 
 def continue_or_abort():
     sys.stdin = open('/dev/tty')
-    answer = raw_input("Would you like to continue anyway? ")
-    if answer.strip().lower().startswith('n'):
+    answer = raw_input("Would you like to continue anyway? ").lower()
+    while (not re.match("[yn].*", answer)):
+        answer = raw_input("Would you like to continue anyway [y/n]? ").lower()
+    if answer.startswith('n'):
         message_store.save(original_message)
         sys.exit(1) # Aborts the commit.
 
