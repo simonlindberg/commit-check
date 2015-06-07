@@ -16,14 +16,13 @@ In any cases this script will do nothing.
 
 import message_store
 import sys
-import os
 
+COMMIT_MSG_FD = sys.argv[1]
 
-if (not len(sys.argv) > 2):
-    message = message_store.get()
+if not len(sys.argv) > 2:
+    MESSAGE = message_store.get()
 
-    if (message is not None):
-	    filename = sys.argv[1]
-	    file = open(filename, 'w+')
-	    file.write(message)
-	    file.close()
+    if MESSAGE is not None:
+        MSG_FILE = open(COMMIT_MSG_FD, 'w+')
+        MSG_FILE.write(MESSAGE)
+        MSG_FILE.close()

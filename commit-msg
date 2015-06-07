@@ -22,63 +22,90 @@ of the file in which the commit message is stored in.
 
 import sys
 import re
-import subprocess
-import message_store
-import operator
-from pattern.en import Sentence, parse, mood, modality, INDICATIVE, IMPERATIVE, CONDITIONAL, SUBJUNCTIVE
 
-# If the commit is to fail, due to an incorrect formated commit message, the information of why is stored here.
-fail_reason = []
+from message_store import run_cmd_output_lines, save
+from pattern.en import Sentence, parse, mood
+from pattern.en import INDICATIVE, IMPERATIVE, CONDITIONAL, SUBJUNCTIVE
+
+# If the commit is to fail, due to an incorrect formated commit message,
+# the information of why is stored here.
+FAIL_REASON = []
 
 # If any fixups was done on to the message, information of what fixups are stored here.
-fixups = []
+FIXUPS = []
 
-commit_msg_fd = sys.argv[1]
+COMMIT_MSG_PATH = sys.argv[1]
 
 
 def underline(text):
+    """
+    Returns the given text, but will be shown as underlined if print to the console.
+    """
     return "\033[4m" + text + "\033[0m"
 
 def red(text):
+    """
+    Returns the given text, but will be shown as red if print to the console.
+    """
     return "\033[91m" + text + "\033[0m"
 
 def blue(text):
+    """
+    Returns the given text, but will be shown as blue if print to the console.
+    """
     return "\033[96m" + text + "\033[0m"
 
 def green(text):
+    """
+    Returns the given text, but will be shown as green if print to the console.
+    """
     return "\033[92m" + text + "\033[0m"
 
 def yellow(text):
+    """
+    Returns the given text, but will be shown as yellow if print to the console.
+    """
     return "\033[93m" + text + "\033[0m"
 
 def indent(text):
+    """
+    Returns the given text, but every line is indented  with one tab.
+    """
     return "\t" + text.replace("\n", "\n\t")
 
-def mood_color(mood):
-    if (mood == IMPERATIVE):
+def mood_color(_mood):
+    """
+    Returns the color function corresponding to the given mood.
+    """
+    if _mood == IMPERATIVE:
         return green
-    elif (mood == INDICATIVE):
+    elif _mood == INDICATIVE:
         return blue
-    elif (mood == SUBJUNCTIVE):
+    elif _mood == SUBJUNCTIVE:
         return red
-    elif (mood == CONDITIONAL):
+    elif _mood == CONDITIONAL:
         return yellow
 
 def continue_or_abort():
+    """
+    Prompts the user with the option to continue or not.
+    If the user choose not to continue the current message is saved.
+    """
     sys.stdin = open('/dev/tty')
     answer = raw_input("Would you like to continue anyway? ").lower()
-    while (not re.match("[yn].*", answer)):
+    while not re.match("[yn].*", answer):
         answer = raw_input("Would you like to continue anyway [y/n]? ").lower()
     if answer.startswith('n'):
-        message_store.save(original_message)
+        save(ORIGINAL_MESSAGE)
         sys.exit(1) # Aborts the commit.
+
 
 def assert_subject_length(subject):
     """
     Asserts that the subject line is shorter than 50.
     """
-    if (len(subject) > 50):
-        fail_reason.append("* The subject line may not be longer than 50 characters.")
+    if len(subject) > 50:
+        FAIL_REASON.append("* The subject line may not be longer than 50 characters.")
 
 
 def assert_body_line_length(lines):
@@ -86,8 +113,8 @@ def assert_body_line_length(lines):
     Asserts that the body lines are shorter than 72 characters.
     """
     for line in lines[1:]:
-        if (len(line) > 72):
-            fail_reason.append("* No line of the body may contain more than 72 characters.")
+        if len(line) > 72:
+            FAIL_REASON.append("* No line of the body may contain more than 72 characters.")
             break
 
 
@@ -95,8 +122,8 @@ def ensure_capitalization(subject):
     """
     Returns a correctly capitalized version of input subject line.
     """
-    if (subject[0].islower()):
-        fixups.append("* You should capitalize the subject line.")
+    if subject[0].islower():
+        FIXUPS.append("* You should capitalize the subject line.")
         return subject[0].upper() + subject[1:]
     else:
         return subject
@@ -106,22 +133,24 @@ def ensure_punctuation(subject):
     """
     Returns a subject line without trailing punctuations.
     """
-    while (subject[-1] == '.' or subject[-1] == '!' or subject[-1] == '?'):
-        fixups.append("* Removed " + subject[-1] + " from the end of the subject line, no need for punctuations.")
+    while subject[-1] == '.' or subject[-1] == '!' or subject[-1] == '?':
+        FIXUPS.append(
+            "* Removed " + subject[-1] +
+            " from the end of the subject line, no need for punctuations.")
         subject = subject[0:-1]
 
     return subject
 
 
-def ensure_subject_and_body_seperate(lines):
+def ensure_subject_body_seperate(lines):
     """
     Ensures that the subject line is seperated by a blank line.
     The subject and the body needs to be seperated in order for
     git to properly dicern them in the logs. Also i looks better.
     """
-    if (not re.compile("^\s*$").match(lines[1])):
+    if not re.compile(r"^\s*$").match(lines[1]):
         lines.insert(1, "")
-        fixups.append("* The subject line should be seperated from the body with a blank line.")
+        FIXUPS.append("* The subject line should be seperated from the body with a blank line.")
 
 def spell_check(message):
     """
@@ -132,19 +161,20 @@ def spell_check(message):
     otherwise a new list with the error hightlighted is returned.
     """
 
-    aspell = subprocess.Popen(["which aspell"], stdout = subprocess.PIPE, stderr = subprocess.STDOUT, shell = True).communicate()[0].split("\n")[0]
-    if (aspell == ""):
+    aspell = run_cmd_output_lines("which aspell")[0]
+    if aspell == "":
         print "No `aspell` found, install it to enable spell check."
         return None
 
-    aspells = subprocess.Popen(["echo '" + message.replace("'", "'\\''") + "' | " + aspell + " list"], stdout = subprocess.PIPE, stderr = subprocess.STDOUT, shell = True).communicate()[0].split("\n")[:-1]
+    echo = "echo '" + message.replace("'", "'\\''") + "' | " + aspell + " list"
+    aspells = run_cmd_output_lines(echo)[:-1]
 
     spell_checks = False
     for _aspell in aspells:
         message = message.replace(_aspell, underline(_aspell))
         spell_checks = True
 
-    if (spell_checks):
+    if spell_checks:
         print ""
         print "Found some questionable spellings:"
         print ""
@@ -164,44 +194,46 @@ def mood_check(message):
     # The subject line might not contain any punctuation
     # But should allways be treated as a sentence.
     sub = message.split("\n", 1)[0]
-    if (sub[-1] != "." or sub[-1] != "!" or sub[-1] != "?"):
+    if len(sub) > 0 and (sub[-1] != "." or sub[-1] != "!" or sub[-1] != "?"):
         message = message.replace(sub + "\n", sub + ".\n", 1)
 
     # Split on punctuation and start of bullet point
-    sentences = re.split("[.?!]|^\s?[-*]\s?", message)
+    sentences = re.split(r"[.?!]|^\s?[-*]\s?", message)
 
     for sentence in sentences:
-        if (re.match("^\s*$", sentence)):
+        if re.match(r"^\s*$", sentence):
             continue
-        p = parse(sentence, lemmata = True)
-        s = Sentence(p)
-        mood_by_sentence[sentence] = mood(s)
+        sent = Sentence(parse(sentence, lemmata=True))
+        mood_by_sentence[sentence] = mood(sent)
 
     bad_subject_line = False
     bad_sentence = False
 
-    if (sentences[0] in mood_by_sentence and mood_by_sentence[sentences[0]] != IMPERATIVE):
+    if sentences[0] in mood_by_sentence and mood_by_sentence[sentences[0]] != IMPERATIVE:
         bad_subject_line = True
 
-    for s, m in mood_by_sentence.iteritems():
-        s = re.sub("^\s+", "", s)
-        message = message.replace(s, mood_color(m)(s))
+    for sent, sent_mood in mood_by_sentence.iteritems():
+        sent = re.sub(r"^\s+", "", sent)
+        message = message.replace(sent, mood_color(sent_mood)(sent))
 
-        if (m == SUBJUNCTIVE):
+        if sent_mood == SUBJUNCTIVE:
             bad_sentence = True
 
-    if (bad_subject_line or bad_sentence):
+    if bad_subject_line or bad_sentence:
         print ""
-        if (bad_subject_line):
-            print "* The mood of the subject line should be " + mood_color(IMPERATIVE)(IMPERATIVE) + " not " + mood_color(mood_by_sentence[sentences[0]])(mood_by_sentence[sentences[0]]) + "."
-        if (bad_sentence):
-            print "* No sentence in the body of the message should be " + mood_color(SUBJUNCTIVE)(SUBJUNCTIVE) + "."
+        if bad_subject_line:
+            real_mood = mood_color(mood_by_sentence[sentences[0]])(mood_by_sentence[sentences[0]])
+            imp_mood = mood_color(IMPERATIVE)(IMPERATIVE)
+            print "* The mood of the subject line should be " + imp_mood + " not " + real_mood + "."
+        if bad_sentence:
+            subj_mood = mood_color(SUBJUNCTIVE)(SUBJUNCTIVE)
+            print "* No sentence in the body of the message should be " + subj_mood + "."
         print ""
         print indent(message)
         print ""
 
-        print mood_color(IMPERATIVE)( " " + IMPERATIVE + "  (command)")
-        print mood_color(INDICATIVE)( " " + INDICATIVE + "  (fact/belief)")
+        print mood_color(IMPERATIVE)(" " + IMPERATIVE + "  (command)")
+        print mood_color(INDICATIVE)(" " + INDICATIVE + "  (fact/belief)")
         print mood_color(CONDITIONAL)(" " + CONDITIONAL + " (conjecture)")
         print mood_color(SUBJUNCTIVE)(" " + SUBJUNCTIVE + " (opinion/wish)")
         print ""
@@ -209,62 +241,60 @@ def mood_check(message):
         continue_or_abort()
 
 
-msg_file = open(commit_msg_fd, 'r')
-original_message = msg_file.read()
-#original_message = re.sub("^\s+", "", original_message)
-msg_file.close()
+MESSAGE_FILE = open(COMMIT_MSG_PATH, 'r')
+ORIGINAL_MESSAGE = MESSAGE_FILE.read()
+MESSAGE_FILE.close()
 
-message = re.sub("^#(?:\n|.)*", "", original_message, flags = re.M)
+MESSAGE = re.sub(r"^#(?:\n|.)*", "", ORIGINAL_MESSAGE, flags=re.M)
 
-lines = message.splitlines()
+LINES = MESSAGE.splitlines()
 
 # If the commit message is empty git itself will dissmiss it.
-if (not lines):
+if not LINES:
     sys.exit(0)
 
 
 # If any potential spelling errors are found, ask the user to continue or not
-spell_check(message)
+spell_check(MESSAGE)
 
 # If any non compliant moods are detected, show the user and ask whether to continue or not.
-mood_check(message)
+mood_check(MESSAGE)
 
 
 # The subject is the first line of the commit message
-lines[0] = ensure_capitalization(lines[0])
-lines[0] = ensure_punctuation(lines[0])
+LINES[0] = ensure_capitalization(LINES[0])
+LINES[0] = ensure_punctuation(LINES[0])
 
-assert_subject_length(lines[0])
+assert_subject_length(LINES[0])
 
 # Check the body of the message
-if (len(lines) > 1):
-    assert_body_line_length(lines)
-    ensure_subject_and_body_seperate(lines)
+if len(LINES) > 1:
+    assert_body_line_length(LINES)
+    ensure_subject_body_seperate(LINES)
 
 # Done with the checking!
 
 # Did we fail?
-if (fail_reason):
+if FAIL_REASON:
     # Save the message to be used in the next try.
-    message_store.save(original_message)
+    save(ORIGINAL_MESSAGE)
 
     print "COMMIT ABORTED!"
-    print "\n".join(fail_reason)
+    print "\n".join(FAIL_REASON)
     print ""
     print "Please do try again, or add '--no-verify' to skip"
 
     sys.exit(1) # Aborts the commit
-    
 
 
 # Did we do any fixups to the message?
-if (fixups):
-    new_message = "\n".join(lines)
-    msg_file = open(commit_msg_fd, 'w')
-    msg_file.write(new_message)
-    msg_file.close()
+if FIXUPS:
+    NEW_MESSAGE = "\n".join(LINES)
+    MSG_FILE = open(COMMIT_MSG_PATH, 'w')
+    MSG_FILE.write(NEW_MESSAGE)
+    MSG_FILE.close()
 
     print ""
     print "Did some fixups on the message for you:"
-    print "\n".join(fixups)
+    print "\n".join(FIXUPS)
     print ""
