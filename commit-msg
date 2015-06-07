@@ -40,6 +40,12 @@ WARNINGS = []
 
 COMMIT_MSG_PATH = sys.argv[1]
 
+BODY_LINE_LENGTH_HARD_LIMIT = 80
+BODY_LINE_LENGTH_WARNING = 72
+
+SUBJECT_LINE_LENGTH_HARD_LIMIT = 60
+SUBJECT_LINE_LENGTH_WARNING = 50
+
 
 def underline(text):
     """
@@ -106,26 +112,39 @@ def continue_or_abort():
 
 def assert_subject_length(subject):
     """
-    Asserts that the subject line is shorter than 69. Warns if above 50.
+    Asserts that the subject line is shorter than SUBJECT_LINE_LENGTH_HARD_LIMIT.
+    Warns if above SUBJECT_LINE_LENGTH_WARNING.
     """
-    if len(subject) > 69:
-        FAIL_REASON.append("* The subject line may not be longer than 69 characters.")
-    elif len(subject) > 50:
-        WARNINGS.append("* The preferable length of the subject is below 50, hard limit at 69.")
+    if len(subject) > SUBJECT_LINE_LENGTH_HARD_LIMIT:
+        FAIL_REASON.append(
+            "* The subject line may not be longer than " +
+            str(SUBJECT_LINE_LENGTH_HAD_LIMIT) + " characters.")
+    elif len(subject) > SUBJECT_LINE_LENGTH_WARNING:
+        WARNINGS.append(
+            "* The preferable length of the subject is below " +
+            str(SUBJECT_LINE_LENGTH_WARNING) + ", hard limit at " +
+            str(SUBJECT_LINE_LENGTH_HARD_LIMIT) + ".")
 
 
 def assert_body_line_length(lines):
     """
-    Asserts that the body lines are shorter than 80 characters. Warns if above 72.
+    Asserts that the body lines are shorter than BODY_LINE_LENGTH_HARD_LIMIT characters.
+    Warns if above BODY_LINE_LENGTH_WARNING.
     """
     warned = False
     for line in lines[1:]:
-        if len(line) > 80:
-            FAIL_REASON.append("* No line of the body may contain more than 80 characters.")
+        if len(line) > BODY_LINE_LENGTH_HARD_LIMIT:
+            FAIL_REASON.append(
+                "* No line of the body may contain more than " +
+                str(BODY_LINE_LENGTH_HARD_LIMIT) + " characters.")
             break
-        elif len(line) > 72 and not warned:
+        elif len(line) > BODY_LINE_LENGTH_WARNING and not warned:
             warned = True # Only warn once.
-            WARNINGS.append("* Line lengths above 72 are discouraged, however the hard limit is 80.")
+            WARNINGS.append(
+                "* Line lengths above " +
+                str(BODY_LINE_LENGTH_WARNING) +
+                " are discouraged, however the hard limit is " +
+                str(BODY_LINE_LENGTH_HARD_LIMIT) + ".")
 
 
 def ensure_subject_line_non_empty(lines):
