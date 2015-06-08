@@ -118,7 +118,7 @@ def assert_subject_length(subject):
     if len(subject) > SUBJECT_LINE_LENGTH_HARD_LIMIT:
         FAIL_REASON.append(
             "* The subject line may not be longer than " +
-            str(SUBJECT_LINE_LENGTH_HAD_LIMIT) + " characters.")
+            str(SUBJECT_LINE_LENGTH_HARD_LIMIT) + " characters.")
     elif len(subject) > SUBJECT_LINE_LENGTH_WARNING:
         WARNINGS.append(
             "* The preferable length of the subject is below " +
