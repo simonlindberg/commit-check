@@ -117,12 +117,12 @@ def assert_subject_length(subject):
     """
     if len(subject) > SUBJECT_LINE_LENGTH_HARD_LIMIT:
         FAIL_REASON.append(
-            "* The subject line may not be longer than " +
+            "* Too long line (" + str(len(subject)) + ")! The subject line may not be longer than " +
             str(SUBJECT_LINE_LENGTH_HARD_LIMIT) + " characters.")
     elif len(subject) > SUBJECT_LINE_LENGTH_WARNING:
         WARNINGS.append(
-            "* The preferable length of the subject is below " +
-            str(SUBJECT_LINE_LENGTH_WARNING) + ", hard limit at " +
+            "* Long subject line (" + str(len(subject)) + "). The preferable length of the " +
+            "subject line is below " + str(SUBJECT_LINE_LENGTH_WARNING) + ", hard limit at " +
             str(SUBJECT_LINE_LENGTH_HARD_LIMIT) + ".")
 
 
@@ -135,13 +135,13 @@ def assert_body_line_length(lines):
     for line in lines[1:]:
         if len(line) > BODY_LINE_LENGTH_HARD_LIMIT:
             FAIL_REASON.append(
-                "* No line of the body may contain more than " +
-                str(BODY_LINE_LENGTH_HARD_LIMIT) + " characters.")
+                "* Too long line (" + str(len(line)) + ")! No line of the body may contain more than " +
+                str(BODY_LINE_LENGTH_HARD_LIMIT) + " characters. ")
             break
         elif len(line) > BODY_LINE_LENGTH_WARNING and not warned:
             warned = True # Only warn once.
             WARNINGS.append(
-                "* Line lengths above " +
+                "* Long line (" + str(len(line)) + "). Line lengths above " +
                 str(BODY_LINE_LENGTH_WARNING) +
                 " are discouraged, however the hard limit is " +
                 str(BODY_LINE_LENGTH_HARD_LIMIT) + ".")
@@ -170,7 +170,7 @@ def ensure_capitalization(subject):
     Returns a correctly capitalized version of input subject line.
     """
     if subject[0].islower():
-        FIXUPS.append("* You should capitalize the subject line.")
+        FIXUPS.append("* Capitalized the subject line.")
         return subject[0].upper() + subject[1:]
     else:
         return subject
