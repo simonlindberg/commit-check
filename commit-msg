@@ -238,14 +238,15 @@ def mood_check(message):
     """
     mood_by_sentence = {}
 
+    splitable_message = message
     # The subject line might not contain any punctuation
     # But should allways be treated as a sentence.
-    sub = message.split("\n", 1)[0]
-    if len(sub) > 0 and (sub[-1] != "." or sub[-1] != "!" or sub[-1] != "?"):
-        message = message.replace(sub + "\n", sub + ".\n", 1)
+    subject = message.split("\n", 1)[0]
+    if len(subject) > 0 and (subject[-1] != "." or subject[-1] != "!" or subject[-1] != "?"):
+        splitable_message = message.replace(subject + "\n", subject + ".\n", 1)
 
     # Split on punctuation and start of bullet point
-    sentences = re.split(r"[.?!]|^\s?[-*]\s?", message)
+    sentences = re.split(r"[.?!]|^\s?[-*]\s?", splitable_message)
 
     for sentence in sentences:
         if re.match(r"^\s*$", sentence):
