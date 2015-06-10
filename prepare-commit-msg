@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """
 If a commit message was previously stored (due to a failed commit) it will
