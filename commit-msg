@@ -301,13 +301,6 @@ if not LINES:
     sys.exit(0)
 
 
-# If any potential spelling errors are found, ask the user to continue or not
-spell_check(MESSAGE)
-
-# If any non compliant moods are detected, show the user and ask whether to continue or not.
-mood_check(MESSAGE)
-
-
 # The subject is the first line of the commit message
 ensure_subject_line_non_empty(LINES)
 LINES[0] = ensure_capitalization(LINES[0])
@@ -320,9 +313,9 @@ if len(LINES) > 1:
     assert_body_line_length(LINES)
     ensure_subject_body_seperate(LINES)
 
-# Done with the checking!
+# Done with the asserts!
 
-# Did we fail?
+# Did we fail? We want to fail as early as possible.
 if FAIL_REASON:
     # Save the message to be used in the next try.
     save(ORIGINAL_MESSAGE)
@@ -334,6 +327,12 @@ if FAIL_REASON:
 
     sys.exit(1) # Aborts the commit
 
+
+# If any potential spelling errors are found, ask the user to continue or not
+spell_check(MESSAGE)
+
+# If any non compliant moods are detected, show the user and ask whether to continue or not.
+mood_check(MESSAGE)
 
 # Did we do any fixups to the message?
 if FIXUPS:
