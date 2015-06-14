@@ -23,7 +23,9 @@ of the file in which the commit message is stored in.
 import sys
 import re
 
+import config
 from message_store import run_cmd_output_lines, save
+
 from pattern.en import Sentence, parse, mood
 from pattern.en import INDICATIVE, IMPERATIVE, CONDITIONAL, SUBJUNCTIVE
 
@@ -39,12 +41,6 @@ FIXUPS = []
 WARNINGS = []
 
 COMMIT_MSG_PATH = sys.argv[1]
-
-BODY_LINE_LENGTH_HARD_LIMIT = 80
-BODY_LINE_LENGTH_WARNING = 72
-
-SUBJECT_LINE_LENGTH_HARD_LIMIT = 60
-SUBJECT_LINE_LENGTH_WARNING = 50
 
 
 def underline(text):
@@ -112,39 +108,39 @@ def continue_or_abort():
 
 def assert_subject_length(subject):
     """
-    Asserts that the subject line is shorter than SUBJECT_LINE_LENGTH_HARD_LIMIT.
-    Warns if above SUBJECT_LINE_LENGTH_WARNING.
+    Asserts that the subject line is shorter than config.SUBJECT_LINE_LENGTH_HARD_LIMIT.
+    Warns if above config.SUBJECT_LINE_LENGTH_WARNING.
     """
-    if len(subject) > SUBJECT_LINE_LENGTH_HARD_LIMIT:
+    if len(subject) > config.SUBJECT_LINE_LENGTH_HARD_LIMIT:
         FAIL_REASON.append(
             "* Too long line (" + str(len(subject)) + ")! The subject line may not be longer than " +
-            str(SUBJECT_LINE_LENGTH_HARD_LIMIT) + " characters.")
-    elif len(subject) > SUBJECT_LINE_LENGTH_WARNING:
+            str(config.SUBJECT_LINE_LENGTH_HARD_LIMIT) + " characters.")
+    elif len(subject) > config.SUBJECT_LINE_LENGTH_WARNING:
         WARNINGS.append(
             "* Long subject line (" + str(len(subject)) + "). The preferable length of the " +
-            "subject line is below " + str(SUBJECT_LINE_LENGTH_WARNING) + ", hard limit at " +
-            str(SUBJECT_LINE_LENGTH_HARD_LIMIT) + ".")
+            "subject line is below " + str(config.SUBJECT_LINE_LENGTH_WARNING) + ", hard limit at " +
+            str(config.SUBJECT_LINE_LENGTH_HARD_LIMIT) + ".")
 
 
 def assert_body_line_length(lines):
     """
-    Asserts that the body lines are shorter than BODY_LINE_LENGTH_HARD_LIMIT characters.
-    Warns if above BODY_LINE_LENGTH_WARNING.
+    Asserts that the body lines are shorter than config.BODY_LINE_LENGTH_HARD_LIMIT characters.
+    Warns if above config.BODY_LINE_LENGTH_WARNING.
     """
     warned = False
     for line in lines[1:]:
-        if len(line) > BODY_LINE_LENGTH_HARD_LIMIT:
+        if len(line) > config.BODY_LINE_LENGTH_HARD_LIMIT:
             FAIL_REASON.append(
                 "* Too long line (" + str(len(line)) + ")! No line of the body may contain more than " +
-                str(BODY_LINE_LENGTH_HARD_LIMIT) + " characters. ")
+                str(config.BODY_LINE_LENGTH_HARD_LIMIT) + " characters. ")
             break
-        elif len(line) > BODY_LINE_LENGTH_WARNING and not warned:
+        elif len(line) > config.BODY_LINE_LENGTH_WARNING and not warned:
             warned = True # Only warn once.
             WARNINGS.append(
                 "* Long line (" + str(len(line)) + "). Line lengths above " +
-                str(BODY_LINE_LENGTH_WARNING) +
+                str(config.BODY_LINE_LENGTH_WARNING) +
                 " are discouraged, however the hard limit is " +
-                str(BODY_LINE_LENGTH_HARD_LIMIT) + ".")
+                str(config.BODY_LINE_LENGTH_HARD_LIMIT) + ".")
 
 
 def ensure_subject_line_non_empty(lines):
@@ -207,11 +203,13 @@ def spell_check(message):
     If the spell check is run and nothing of intrest is found `None` is returned,
     otherwise a new list with the error hightlighted is returned.
     """
+    if not config.DO_SPELL_CHECK:
+        return
 
     aspell = run_cmd_output_lines("which aspell")[0]
     if aspell == "":
         print "No `aspell` found, install it to enable spell check."
-        return None
+        return
 
     echo = "echo '" + message.replace("'", "'\\''") + "' | " + aspell + " list"
     aspells = run_cmd_output_lines(echo)[:-1]
@@ -236,6 +234,10 @@ def mood_check(message):
     Checks that the subject line is in an IMPERATIVE mood and
     that thare are no SUBJUNCTIVE sentences in the message.
     """
+
+    if not config.DO_MOOD_CHECK:
+        return
+
     mood_by_sentence = {}
 
     splitable_message = message
@@ -336,7 +338,7 @@ spell_check(MESSAGE)
 mood_check(MESSAGE)
 
 # Did we do any fixups to the message?
-if FIXUPS:
+if FIXUPS and config.DO_MESSAGE_FIXUP:
     NEW_MESSAGE = "\n".join(LINES)
     MSG_FILE = open(COMMIT_MSG_PATH, 'w')
     MSG_FILE.write(NEW_MESSAGE)
@@ -347,7 +349,7 @@ if FIXUPS:
     print "\n".join(FIXUPS)
     print ""
 
-if WARNINGS:
+if WARNINGS and config.PRINT_WARNINGS:
     print "Friendly reminders:"
     print "\n".join(WARNINGS)
     print ""

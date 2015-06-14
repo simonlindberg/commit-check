@@ -8,6 +8,8 @@ Will be used by the 'prepare-commit-msg', 'commit-msg' and 'post-commit' git hoo
 import subprocess
 import os
 
+import config
+
 def run_cmd_output_lines(cmd):
     """
     Runs the given command in a new subprocess and returns the output as a list of lines.
@@ -37,9 +39,10 @@ def save(message):
     """
     Stores the message to disk.
     """
-    msg_file = open(get_msg_file(), 'w')
-    msg_file.write(message)
-    msg_file.close()
+    if config.STORE_BAD_MESSAGE:
+        msg_file = open(get_msg_file(), 'w')
+        msg_file.write(message)
+        msg_file.close()
 
 def get():
     """
