@@ -20,9 +20,13 @@ PRINT_WARNINGS = True
 # * Remove punctuation from subject line
 DO_MESSAGE_FIXUP = True
 
-# Search for spelling errors
-DO_SPELL_CHECK = True
-
 # Ensure that the subject is in imperative and 
 # that no subjunctive sentence are in the body
 DO_MOOD_CHECK = True
+
+# Search for spelling errors
+DO_SPELL_CHECK = True
+
+# This is where "new" words are added. This path should
+# also be recongnized by aspell in order to have effect.
+SPELL_CHECK_PERSONAL_WORDLIST = "~/.aspell.en.pws"

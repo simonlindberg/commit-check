@@ -20,6 +20,7 @@ The first paramter given to the 'commit-msg' git hook is the name
 of the file in which the commit message is stored in.
 """
 
+import os
 import sys
 import re
 
@@ -92,18 +93,17 @@ def mood_color(_mood):
     elif _mood == CONDITIONAL:
         return yellow
 
-def continue_or_abort():
+def wait_for_input_matching(prompt, regex="[yn].*"):
     """
-    Prompts the user with the option to continue or not.
-    If the user choose not to continue the current message is saved.
+    Prompts the user with the given prompt, until a input is
+    given that matches the given regex.
     """
     sys.stdin = open('/dev/tty')
-    answer = raw_input("Would you like to continue anyway? ").lower()
-    while not re.match("[yn].*", answer):
-        answer = raw_input("Would you like to continue anyway [y/n]? ").lower()
-    if answer.startswith('n'):
-        save(ORIGINAL_MESSAGE)
-        sys.exit(1) # Aborts the commit.
+    answer = raw_input(prompt).lower()
+    while not re.match(regex, answer):
+        answer = raw_input(prompt).lower()
+
+    return answer
 
 
 def assert_subject_length(subject):
@@ -212,10 +212,10 @@ def spell_check(message):
         return
 
     echo = "echo '" + message.replace("'", "'\\''") + "' | " + aspell + " list"
-    aspells = run_cmd_output_lines(echo)[:-1]
+    misspells = run_cmd_output_lines(echo)[:-1]
 
     spell_checks = False
-    for _aspell in aspells:
+    for _aspell in misspells:
         message = message.replace(_aspell, underline(_aspell))
         spell_checks = True
 
@@ -226,7 +226,29 @@ def spell_check(message):
         print indent(message)
         print ""
 
-        continue_or_abort()
+        print "To extend your dictionary enter " + green("add") + "."
+        answer = wait_for_input_matching("Would you like to continue anyway? ", regex="[yna].*")
+        if answer.startswith('n'):
+            save(ORIGINAL_MESSAGE)
+            sys.exit(1) # Aborts the commit.
+        elif answer.startswith('a'):
+            if not os.path.exists(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST)):
+                print "No person wordlist found, creating one at '"
+                + config.SPELL_CHECK_PERSONAL_WORDLIST + "'"
+
+                wl_file = open(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST), 'a+')
+                wl_file.write("personal_ws-1.1 en 0\n")
+            else:
+                wl_file = open(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST), 'a')
+
+            for word in misspells:
+                add = wait_for_input_matching("Would you like to add " + green(word) + "? ")
+                if add.startswith('y'):
+                    wl_file.write(word + "\n")
+                    print "Added " + green(word)
+
+            print ""
+            wl_file.close()
 
 
 def mood_check(message):
@@ -288,7 +310,10 @@ def mood_check(message):
         print mood_color(SUBJUNCTIVE)(" " + SUBJUNCTIVE + " (opinion/wish)")
         print ""
 
-        continue_or_abort()
+        answer = wait_for_input_matching("Would you like to continue anyway? ")
+        if answer.startswith('n'):
+            save(ORIGINAL_MESSAGE)
+            sys.exit(1) # Aborts the commit.
 
 
 MESSAGE_FILE = open(COMMIT_MSG_PATH, 'r')
