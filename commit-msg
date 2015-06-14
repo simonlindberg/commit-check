@@ -113,13 +113,13 @@ def assert_subject_length(subject):
     """
     if len(subject) > config.SUBJECT_LINE_LENGTH_HARD_LIMIT:
         FAIL_REASON.append(
-            "* Too long line (" + red(str(len(subject))) + ")! The subject line may not be longer than " +
-            red(str(config.SUBJECT_LINE_LENGTH_HARD_LIMIT)) + " characters.")
+            "* Too long line (" + red(str(len(subject))) + ")! The subject line may not be " +
+            "longer than " + red(str(config.SUBJECT_LINE_LENGTH_HARD_LIMIT)) + " characters.")
     elif len(subject) > config.SUBJECT_LINE_LENGTH_WARNING:
         WARNINGS.append(
             "* Long subject line (" + blue(str(len(subject))) + "). The preferable length of the " +
-            "subject line is below " + green(str(config.SUBJECT_LINE_LENGTH_WARNING)) + ", hard limit at " +
-            red(str(config.SUBJECT_LINE_LENGTH_HARD_LIMIT)) + ".")
+            "subject line is below " + green(str(config.SUBJECT_LINE_LENGTH_WARNING)) + ", " +
+            "hard limit at " + red(str(config.SUBJECT_LINE_LENGTH_HARD_LIMIT)) + ".")
 
 
 def assert_body_line_length(lines):
@@ -131,8 +131,8 @@ def assert_body_line_length(lines):
     for line in lines[1:]:
         if len(line) > config.BODY_LINE_LENGTH_HARD_LIMIT:
             FAIL_REASON.append(
-                "* Too long line (" + red(str(len(line))) + ")! No line of the body may contain more than " +
-                green(str(config.BODY_LINE_LENGTH_HARD_LIMIT)) + " characters. ")
+                "* Too long line (" + red(str(len(line))) + ")! No line of the body may contain " +
+                "more than " + green(str(config.BODY_LINE_LENGTH_HARD_LIMIT)) + " characters. ")
             break
         elif len(line) > config.BODY_LINE_LENGTH_WARNING and not warned:
             warned = True # Only warn once.
