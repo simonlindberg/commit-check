@@ -22,6 +22,7 @@ of the file in which the commit message is stored in.
 
 import os
 import sys
+import signal
 import re
 
 import config
@@ -315,6 +316,15 @@ def mood_check(message):
             save(ORIGINAL_MESSAGE)
             sys.exit(1) # Aborts the commit.
 
+def signal_handler(signal, frame):
+    """
+    Saves the commit message and kills the program with a
+    non zero exit code, which in turn will abort the commit.
+    """
+    save(ORIGINAL_MESSAGE)
+    sys.exit(1)
+
+signal.signal(signal.SIGINT, signal_handler)
 
 MESSAGE_FILE = open(COMMIT_MSG_PATH, 'r')
 ORIGINAL_MESSAGE = MESSAGE_FILE.read()
