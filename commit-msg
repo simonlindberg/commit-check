@@ -217,7 +217,7 @@ def spell_check(message):
 
     spell_checks = False
     for _aspell in misspells:
-        message = message.replace(_aspell, underline(_aspell))
+        message = re.sub(r"\b" + _aspell + r"\b", underline(_aspell), message)
         spell_checks = True
 
     if spell_checks:
@@ -234,8 +234,8 @@ def spell_check(message):
             sys.exit(1) # Aborts the commit.
         elif answer.startswith('a'):
             if not os.path.exists(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST)):
-                print "No person wordlist found, creating one at '"
-                + config.SPELL_CHECK_PERSONAL_WORDLIST + "'"
+                print "No person wordlist found, creating one "\
+                    "at '" + config.SPELL_CHECK_PERSONAL_WORDLIST + "'"
 
                 wl_file = open(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST), 'a+')
                 wl_file.write("personal_ws-1.1 en 0\n")
