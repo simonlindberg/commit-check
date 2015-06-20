@@ -45,41 +45,61 @@ WARNINGS = []
 COMMIT_MSG_PATH = sys.argv[1]
 
 
+C_END = "\033[0m"
+C_RED = "\033[91m"
+C_BLUE = "\033[96m"
+C_GREEN = "\033[92m"
+C_YELLOW = "\033[93m"
+C_UNDERLINE = "\033[4m"
+
 def underline(text):
     """
     Returns the given text, but will be shown as underlined if print to the console.
     """
-    return "\033[4m" + text + "\033[0m"
+    return C_UNDERLINE + text + C_END
 
 def red(text):
     """
     Returns the given text, but will be shown as red if print to the console.
     """
-    return "\033[91m" + text + "\033[0m"
+    return C_RED + text + C_END
 
 def blue(text):
     """
     Returns the given text, but will be shown as blue if print to the console.
     """
-    return "\033[96m" + text + "\033[0m"
+    return C_BLUE + text + C_END
 
 def green(text):
     """
     Returns the given text, but will be shown as green if print to the console.
     """
-    return "\033[92m" + text + "\033[0m"
+    return C_GREEN + text + C_END
 
 def yellow(text):
     """
     Returns the given text, but will be shown as yellow if print to the console.
     """
-    return "\033[93m" + text + "\033[0m"
+    return C_YELLOW + text + C_END
 
 def indent(text):
     """
     Returns the given text, but every line is indented  with one tab.
     """
     return "\t" + text.replace("\n", "\n\t")
+
+def mood_color_c(_mood):
+    """
+    Returns the color prefix corresponding to the given mood.
+    """
+    if _mood == IMPERATIVE:
+        return C_GREEN
+    elif _mood == INDICATIVE:
+        return C_BLUE
+    elif _mood == SUBJUNCTIVE:
+        return C_RED
+    elif _mood == CONDITIONAL:
+        return C_YELLOW
 
 def mood_color(_mood):
     """
@@ -196,125 +216,141 @@ def ensure_subject_body_seperate(lines):
         lines.insert(1, "")
         FIXUPS.append("* Inserted an empty line between the subject and the body.")
 
-def spell_check(message):
-    """
-    Spell checks the commit message with `aspell`, if aspell does
-    not exist on the system this will do nothing.
 
-    If the spell check is run and nothing of intrest is found `None` is returned,
-    otherwise a new list with the error hightlighted is returned.
+def get_wordlist():
     """
-    if not config.DO_SPELL_CHECK:
-        return
+    If no wordlist is found one will be created.
+    """
+    if not os.path.exists(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST)):
+        print "No person wordlist found, creating one "\
+            "at '" + config.SPELL_CHECK_PERSONAL_WORDLIST + "'"
 
+        wordlist = open(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST), 'a+')
+        wordlist.write("personal_ws-1.1 en 0\n")
+    else:
+        wordlist = open(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST), 'a')
+
+    return wordlist
+
+def do_language_checks(message):
+    """
+    Perform a spell check and a mood check and prompt the user
+    with the result if the result is negative.
+    """
+    bad_mood_subject_line = False
+    bad_mood_sentence = False
+    bad_spelling_found = False
+
+    # Run spell checking, if enabled and available.
     aspell = run_cmd_output_lines("which aspell")[0]
-    if aspell == "":
+    if config.DO_SPELL_CHECK and aspell == "":
         print "No `aspell` found, install it to enable spell check."
-        return
 
-    echo = "echo '" + message.replace("'", "'\\''") + "' | " + aspell + " list"
-    misspells = run_cmd_output_lines(echo)[:-1]
+    if config.DO_SPELL_CHECK and not aspell == "":
+        aspell_cmd = "echo '" + message.replace("'", "'\\''") + "' | " + aspell + " list"
+        misspelled_words = run_cmd_output_lines(aspell_cmd)[:-1]
 
-    spell_checks = False
-    for _aspell in misspells:
-        message = re.sub(r"\b" + _aspell + r"\b", underline(_aspell), message)
-        spell_checks = True
+        for word in misspelled_words:
+            message = re.sub(r"\b" + word + r"\b", underline(word), message)
+            bad_spelling_found = True
 
-    if spell_checks:
+    # Continue with mood check if enabled
+    if config.DO_MOOD_CHECK:
+        mood_by_sentence = {}
+
+        sentenceable_message = message
+        # The subject line might not contain any punctuation
+        # But should allways be treated as a sentence.
+        subject = message.split("\n", 1)[0]
+        if len(subject) > 0 and (subject[-1] != "." or subject[-1] != "!" or subject[-1] != "?"):
+            sentenceable_message = message.replace(subject + "\n", subject + ".\n", 1)
+
+        # Split on punctuation and start of bullet point
+        sentences = re.split(r"[.?!]|^\s?[-*]\s?", sentenceable_message)
+
+        for sentence in sentences:
+            if re.match(r"^\s*$", sentence):
+                continue
+            sent = Sentence(parse(sentence, lemmata=True))
+            mood_by_sentence[sentence] = mood(sent)
+
+
+        if sentences[0] in mood_by_sentence and mood_by_sentence[sentences[0]] != IMPERATIVE:
+            bad_mood_subject_line = True
+
+        for sent, sent_mood in mood_by_sentence.iteritems():
+            sent = re.sub(r"^\s+", "", sent)
+            # If any spelling errors has been underlined in the sentence
+            # they will end the color from from the mood.
+            underline_safe_sent = sent.replace(C_END, C_END + mood_color_c(sent_mood))
+
+            message = message.replace(sent, mood_color(sent_mood)(underline_safe_sent))
+
+            if sent_mood == SUBJUNCTIVE:
+                bad_mood_sentence = True
+
+
+    # Prompt the user with any errors found.
+    if bad_mood_subject_line or bad_mood_sentence or bad_spelling_found:
+        count = 1
+        prompt = ""
+        if bad_mood_subject_line:
+            prompt += str(count) + ". "
+            prompt += "The mood of the subject line should be "
+            prompt += mood_color(IMPERATIVE)(IMPERATIVE)
+            prompt += " not "
+            prompt += mood_color(mood_by_sentence[sentences[0]])(mood_by_sentence[sentences[0]])
+            prompt += ".\n"
+            count += 1
+        if bad_mood_sentence:
+            prompt += str(count) + ". "
+            prompt += "No sentence in the body of the message should be "
+            prompt += mood_color(SUBJUNCTIVE)(SUBJUNCTIVE)
+            prompt += ".\n"
+            count += 1
+        if bad_spelling_found:
+            prompt += str(count) + ". "
+            prompt += underline("Underlnied")
+            prompt += " some questionable spellings"
+            prompt += " in the message.\n"
+            count += 1
+
         print ""
-        print "Found some questionable spellings:"
+        print prompt
         print ""
         print indent(message)
         print ""
 
-        print "To extend your dictionary enter " + green("add") + "."
-        answer = wait_for_input_matching("Would you like to continue anyway? ", regex="[yna].*")
+        print mood_color(IMPERATIVE)(IMPERATIVE + "  (command)")
+        print mood_color(INDICATIVE)(INDICATIVE + "  (fact/belief)")
+        print mood_color(CONDITIONAL)(CONDITIONAL + " (conjecture)")
+        print mood_color(SUBJUNCTIVE)(SUBJUNCTIVE + " (opinion/wish)")
+        print ""
+
+        if bad_spelling_found:
+            print "To extend your dictionary enter " + green("add") + "."
+            answer = wait_for_input_matching("Would you like to continue anyway? ", regex="[yna].*")
+        else:
+            answer = wait_for_input_matching("Would you like to continue anyway? ")
+
         if answer.startswith('n'):
             save(ORIGINAL_MESSAGE)
             sys.exit(1) # Aborts the commit.
         elif answer.startswith('a'):
-            if not os.path.exists(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST)):
-                print "No person wordlist found, creating one "\
-                    "at '" + config.SPELL_CHECK_PERSONAL_WORDLIST + "'"
-
-                wl_file = open(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST), 'a+')
-                wl_file.write("personal_ws-1.1 en 0\n")
-            else:
-                wl_file = open(os.path.expanduser(config.SPELL_CHECK_PERSONAL_WORDLIST), 'a')
-
-            for word in misspells:
-                add = wait_for_input_matching("Would you like to add " + green(word) + "? ")
+            wordlist = get_wordlist()
+            for word in misspelled_words:
+                add = wait_for_input_matching("Add " + green(word) + "? ")
                 if add.startswith('y'):
-                    wl_file.write(word + "\n")
+                    wordlist.write(word + "\n")
                     print "Added " + green(word)
 
             print ""
-            wl_file.close()
+            wordlist.close()
+            answer = wait_for_input_matching("Would you like to continue now? ")
+            if answer.startswith('n'):
+                save(ORIGINAL_MESSAGE)
+                sys.exit(1) # Aborts the commit.
 
-
-def mood_check(message):
-    """
-    Checks that the subject line is in an IMPERATIVE mood and
-    that thare are no SUBJUNCTIVE sentences in the message.
-    """
-
-    if not config.DO_MOOD_CHECK:
-        return
-
-    mood_by_sentence = {}
-
-    splitable_message = message
-    # The subject line might not contain any punctuation
-    # But should allways be treated as a sentence.
-    subject = message.split("\n", 1)[0]
-    if len(subject) > 0 and (subject[-1] != "." or subject[-1] != "!" or subject[-1] != "?"):
-        splitable_message = message.replace(subject + "\n", subject + ".\n", 1)
-
-    # Split on punctuation and start of bullet point
-    sentences = re.split(r"[.?!]|^\s?[-*]\s?", splitable_message)
-
-    for sentence in sentences:
-        if re.match(r"^\s*$", sentence):
-            continue
-        sent = Sentence(parse(sentence, lemmata=True))
-        mood_by_sentence[sentence] = mood(sent)
-
-    bad_subject_line = False
-    bad_sentence = False
-
-    if sentences[0] in mood_by_sentence and mood_by_sentence[sentences[0]] != IMPERATIVE:
-        bad_subject_line = True
-
-    for sent, sent_mood in mood_by_sentence.iteritems():
-        sent = re.sub(r"^\s+", "", sent)
-        message = message.replace(sent, mood_color(sent_mood)(sent))
-
-        if sent_mood == SUBJUNCTIVE:
-            bad_sentence = True
-
-    if bad_subject_line or bad_sentence:
-        print ""
-        if bad_subject_line:
-            real_mood = mood_color(mood_by_sentence[sentences[0]])(mood_by_sentence[sentences[0]])
-            imp_mood = mood_color(IMPERATIVE)(IMPERATIVE)
-            print "* The mood of the subject line should be " + imp_mood + " not " + real_mood + "."
-        if bad_sentence:
-            subj_mood = mood_color(SUBJUNCTIVE)(SUBJUNCTIVE)
-            print "* No sentence in the body of the message should be " + subj_mood + "."
-        print ""
-        print indent(message)
-        print ""
-
-        print mood_color(IMPERATIVE)(" " + IMPERATIVE + "  (command)")
-        print mood_color(INDICATIVE)(" " + INDICATIVE + "  (fact/belief)")
-        print mood_color(CONDITIONAL)(" " + CONDITIONAL + " (conjecture)")
-        print mood_color(SUBJUNCTIVE)(" " + SUBJUNCTIVE + " (opinion/wish)")
-        print ""
-
-        answer = wait_for_input_matching("Would you like to continue anyway? ")
-        if answer.startswith('n'):
-            save(ORIGINAL_MESSAGE)
-            sys.exit(1) # Aborts the commit.
 
 def signal_handler(signal, frame):
     """
@@ -366,11 +402,8 @@ if FAIL_REASON:
     sys.exit(1) # Aborts the commit
 
 
-# If any potential spelling errors are found, ask the user to continue or not
-spell_check(MESSAGE)
-
-# If any non compliant moods are detected, show the user and ask whether to continue or not.
-mood_check(MESSAGE)
+# Spell check and check for bad moods.
+do_language_checks(MESSAGE)
 
 # Did we do any fixups to the message?
 if FIXUPS and config.DO_MESSAGE_FIXUP:
