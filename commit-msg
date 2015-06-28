@@ -24,6 +24,7 @@ import os
 import sys
 import signal
 import re
+from collections import OrderedDict
 
 import config
 from message_store import run_cmd_output_lines, save
@@ -56,31 +57,31 @@ def underline(text):
     """
     Returns the given text, but will be shown as underlined if print to the console.
     """
-    return C_UNDERLINE + text + C_END
+    return C_UNDERLINE + text.replace(C_END, C_END + C_UNDERLINE) + C_END
 
 def red(text):
     """
     Returns the given text, but will be shown as red if print to the console.
     """
-    return C_RED + text + C_END
+    return C_RED + text.replace(C_END, C_END + C_RED) + C_END
 
 def blue(text):
     """
     Returns the given text, but will be shown as blue if print to the console.
     """
-    return C_BLUE + text + C_END
+    return C_BLUE + text.replace(C_END, C_END + C_BLUE) + C_END
 
 def green(text):
     """
     Returns the given text, but will be shown as green if print to the console.
     """
-    return C_GREEN + text + C_END
+    return C_GREEN + text.replace(C_END, C_END + C_GREEN ) + C_END
 
 def yellow(text):
     """
     Returns the given text, but will be shown as yellow if print to the console.
     """
-    return C_YELLOW + text + C_END
+    return C_YELLOW + text.replace(C_END, C_END + C_YELLOW) + C_END
 
 def indent(text):
     """
@@ -248,7 +249,7 @@ def do_language_checks(message):
 
     if config.DO_SPELL_CHECK and not aspell == "":
         aspell_cmd = "echo '" + message.replace("'", "'\\''") + "' | " + aspell + " list"
-        misspelled_words = run_cmd_output_lines(aspell_cmd)[:-1]
+        misspelled_words = set(run_cmd_output_lines(aspell_cmd)[:-1])
 
         for word in misspelled_words:
             message = re.sub(r"\b" + word + r"\b", underline(word), message)
@@ -256,7 +257,7 @@ def do_language_checks(message):
 
     # Continue with mood check if enabled
     if config.DO_MOOD_CHECK:
-        mood_by_sentence = {}
+        mood_by_sentence = OrderedDict()
 
         sentenceable_message = message
         # The subject line might not contain any punctuation
@@ -278,17 +279,18 @@ def do_language_checks(message):
         if sentences[0] in mood_by_sentence and mood_by_sentence[sentences[0]] != IMPERATIVE:
             bad_mood_subject_line = True
 
+        complete_message = ""
         for sent, sent_mood in mood_by_sentence.iteritems():
-            sent = re.sub(r"^\s+", "", sent)
-            # If any spelling errors has been underlined in the sentence
-            # they will end the color from from the mood.
-            underline_safe_sent = sent.replace(C_END, C_END + mood_color_c(sent_mood))
+            end = message.find(sent) + len(sent)
 
-            message = message.replace(sent, mood_color(sent_mood)(underline_safe_sent))
+            complete_message += message[0:end].replace(sent, mood_color(sent_mood)(sent))
+
+            message = message[end:]
 
             if sent_mood == SUBJUNCTIVE:
                 bad_mood_sentence = True
 
+        message = complete_message
 
     # Prompt the user with any errors found.
     if bad_mood_subject_line or bad_mood_sentence or bad_spelling_found:
